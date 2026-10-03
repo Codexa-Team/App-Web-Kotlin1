@@ -74,7 +74,7 @@ fun RegisterScreen(navController: NavController, viewModel: AuthViewModel) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Image(
-                painter = painterResource(id = R.drawable.space_pulse_icon),
+                painter = painterResource(id = R.drawable.renticar2),
                 contentDescription = null,
                 modifier = Modifier.size(120.dp)
             )

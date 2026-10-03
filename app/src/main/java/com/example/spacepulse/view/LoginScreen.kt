@@ -81,7 +81,7 @@ fun LoginScreen(navController: NavController, viewModel: AuthViewModel) {
         verticalArrangement = Arrangement.Center
     ) {
         Image(
-            painter = painterResource(id = R.drawable.space_pulse_icon),
+            painter = painterResource(id = R.drawable.renticar2),
             contentDescription = null,
             modifier = Modifier.size(120.dp)
         )
