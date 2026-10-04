@@ -44,7 +44,7 @@ fun ClientHomeScreen(navController: NavController, viewModel: AuthViewModel, spa
                     onTabSelected = { selectedItem = it }
                 )
                 1 -> EspaciosView(navController, spaceViewModel)
-                2 -> MonitoreoView(navController, spaceViewModel)
+                2 -> BuscarView()
                 3 -> PerfilView(navController, viewModel)
             }
         }
