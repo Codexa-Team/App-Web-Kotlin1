@@ -88,7 +88,7 @@ fun LoginScreen(navController: NavController, viewModel: AuthViewModel) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        Text(text = "SpacePulse", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
+        Text(text = "Renticar", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(48.dp))
 
         OutlinedTextField(
@@ -120,8 +120,9 @@ fun LoginScreen(navController: NavController, viewModel: AuthViewModel) {
 
         Button(
             onClick = {
-                isLoading = true
-                viewModel.login(email, password, context)
+              //  isLoading = true
+                //viewModel.login(email, password, context)
+                navController.navigate(route = "clientHome")
             },
             modifier = Modifier.fillMaxWidth().height(54.dp),
             shape = RoundedCornerShape(8.dp),

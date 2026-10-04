@@ -82,7 +82,7 @@ fun RegisterScreen(navController: NavController, viewModel: AuthViewModel) {
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = "SpacePulse",
+                text = "Renticar",
                 style = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.Bold
             )

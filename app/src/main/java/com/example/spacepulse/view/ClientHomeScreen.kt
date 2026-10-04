@@ -4,7 +4,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.AssignmentTurnedIn
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -42,8 +45,7 @@ fun ClientHomeScreen(navController: NavController, viewModel: AuthViewModel, spa
                 )
                 1 -> EspaciosView(navController, spaceViewModel)
                 2 -> MonitoreoView(navController, spaceViewModel)
-                3 -> IoTDevicesView(navController, spaceViewModel)
-                4 -> PerfilView(navController, viewModel)
+                3 -> PerfilView(navController, viewModel)
             }
         }
     }
@@ -51,13 +53,12 @@ fun ClientHomeScreen(navController: NavController, viewModel: AuthViewModel, spa
 
 @Composable
 fun SpacePulseBottomNavigation(selectedColor: Color, selectedItem: Int, onItemSelected: (Int) -> Unit) {
-    val items = listOf("Home", "Espacios", "Alertas", "IoT", "Perfil")
+    val items = listOf("Home", "Reservas", "Buscar", "Perfil")
     val icons = listOf(
-        Icons.Filled.Home,
-        Icons.Filled.Apartment,
-        Icons.Filled.Notifications,
-        Icons.Filled.Router,
-        Icons.Filled.Person
+        Icons.Outlined.Home,
+        Icons.Outlined.AssignmentTurnedIn,
+        Icons.Outlined.Search,
+        Icons.Outlined.Person
     )
 
     NavigationBar(
@@ -75,7 +76,7 @@ fun SpacePulseBottomNavigation(selectedColor: Color, selectedItem: Int, onItemSe
                     selectedTextColor = selectedColor,
                     unselectedIconColor = Color.LightGray,
                     unselectedTextColor = Color.LightGray,
-                    indicatorColor = Color.Transparent
+                    indicatorColor = Color(0xFFB3E5FC)
                 )
             )
         }

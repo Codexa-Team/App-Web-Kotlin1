@@ -64,7 +64,7 @@ fun DashboardView(navController: NavController, spaceViewModel: SpaceViewModel, 
         ) {
             Column {
                 Text(text = "Hola, $firstName", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = darkBlue)
-                Text(text = "Revisa tus espacios", fontSize = 16.sp, color = Color.Gray)
+                Text(text = "Revisa tus Reservas", fontSize = 16.sp, color = Color.Gray)
             }
             val photoUrl = userProfile?.photo
             if (!photoUrl.isNullOrBlank()) {
@@ -99,10 +99,10 @@ fun DashboardView(navController: NavController, spaceViewModel: SpaceViewModel, 
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text(text = "Proyecto activo", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.Black)
+                Text(text = "Reserva activa", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.Black)
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = activeSpace?.title ?: "No tienes proyectos activos",
+                    text = activeSpace?.title ?: "No tienes reservas activas",
                     color = Color.DarkGray,
                     fontSize = 14.sp
                 )
@@ -131,12 +131,12 @@ fun DashboardView(navController: NavController, spaceViewModel: SpaceViewModel, 
         }
         Spacer(modifier = Modifier.height(12.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            QuickAccessButton(title = "Monitoreo", modifier = Modifier.weight(1f)) { onTabSelected(3) }
+            QuickAccessButton(title = "Alertas", modifier = Modifier.weight(1f)) { onTabSelected(2) }
         }
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        Text(text = "Alertas recientes", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = darkBlue)
+        Text(text = "Reservas recientes", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = darkBlue)
         Spacer(modifier = Modifier.height(12.dp))
 
         Card(
@@ -147,7 +147,7 @@ fun DashboardView(navController: NavController, spaceViewModel: SpaceViewModel, 
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 if (notifications.isEmpty()) {
-                    Text(text = "No tienes alertas recientes", color = Color.Gray, fontSize = 14.sp)
+                    Text(text = "No tienes reservas recientes", color = Color.Gray, fontSize = 14.sp)
                 } else {
                     Text(text = "Tienes nuevas notificaciones", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = darkBlue)
                     Spacer(modifier = Modifier.height(4.dp))
