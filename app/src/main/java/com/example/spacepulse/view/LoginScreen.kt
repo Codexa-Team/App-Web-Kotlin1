@@ -53,7 +53,11 @@ fun LoginScreen(navController: NavController, viewModel: AuthViewModel) {
                 Text("No se pudo ingresar", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = darkBlue)
             },
             text = {
-                Text("Revisa tu correo o contraseña e\nintenta nuevamente", color = Color.Gray, fontSize = 16.sp)
+                Text(
+                    text = loginState?.exceptionOrNull()?.localizedMessage ?: "Revisa tu correo o contraseña e intenta nuevamente",
+                    color = Color.Gray,
+                    fontSize = 15.sp
+                )
             },
             confirmButton = {
                 Button(
@@ -89,14 +93,16 @@ fun LoginScreen(navController: NavController, viewModel: AuthViewModel) {
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(text = "Renticar", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(48.dp))
+        Spacer(modifier = Modifier.height(36.dp))
 
         OutlinedTextField(
             value = email,
             onValueChange = { email = it },
             label = { Text("Correo") },
+            placeholder = { Text("ejemplo: sergio@example.com") },
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(8.dp)
+            shape = RoundedCornerShape(8.dp),
+            singleLine = true
         )
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -106,23 +112,41 @@ fun LoginScreen(navController: NavController, viewModel: AuthViewModel) {
             label = { Text("Contraseña") },
             visualTransformation = PasswordVisualTransformation(),
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(8.dp)
+            shape = RoundedCornerShape(8.dp),
+            singleLine = true
         )
 
-        TextButton(
-            onClick = { },
-            modifier = Modifier.align(Alignment.Start)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("¿Olvidaste tu contraseña?", color = darkBlue)
+            TextButton(
+                onClick = {
+                    email = "sergio@example.com"
+                    password = "Password123!"
+                }
+            ) {
+                Text("Usar cuenta de prueba", color = Color(0xFF4DB7ED), fontSize = 13.sp)
+            }
+
+            TextButton(
+                onClick = { }
+            ) {
+                Text("¿Olvidaste tu contraseña?", color = darkBlue, fontSize = 13.sp)
+            }
         }
 
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
         Button(
             onClick = {
-              //  isLoading = true
-                //viewModel.login(email, password, context)
-                navController.navigate(route = "clientHome")
+                if (email.isNotBlank() && password.isNotBlank()) {
+                    isLoading = true
+                    viewModel.login(email.trim(), password, context)
+                } else {
+                    navController.navigate(route = "clientHome")
+                }
             },
             modifier = Modifier.fillMaxWidth().height(54.dp),
             shape = RoundedCornerShape(8.dp),
@@ -136,7 +160,15 @@ fun LoginScreen(navController: NavController, viewModel: AuthViewModel) {
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(16.dp))
+
+        TextButton(
+            onClick = { navController.navigate("clientHome") }
+        ) {
+            Text("Explorar sin iniciar sesión", color = Color.Gray, fontSize = 14.sp)
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
 
         Text(text = "¿No tienes cuenta?", color = Color.Gray)
         TextButton(onClick = { navController.navigate("register") }) {

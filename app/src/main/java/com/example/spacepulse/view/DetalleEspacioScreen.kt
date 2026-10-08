@@ -1,317 +1,325 @@
 package com.example.spacepulse.view
 
-import android.content.Context
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import coil.compose.AsyncImage
+import com.example.spacepulse.R
+import com.example.spacepulse.model.client.RetrofitClient
 import com.example.spacepulse.viewmodel.SpaceViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DetalleEspacioScreen(navController: NavController, spaceViewModel: SpaceViewModel, spaceId: Long) {
+fun DetalleEspacioScreen(
+    navController: NavController,
+    spaceViewModel: SpaceViewModel,
+    spaceId: Long // Corresponde al vehicleId
+) {
     val darkBlue = Color(0xFF2C3E50)
-    val context = LocalContext.current
-    val sharedPref = context.getSharedPreferences("SpacePulsePrefs", Context.MODE_PRIVATE)
-    val token = sharedPref.getString("USER_TOKEN", "") ?: ""
-    val userId = sharedPref.getString("USER_ID", "") ?: ""
+    val accentBlue = Color(0xFF4DB7ED)
 
-    val spaces by spaceViewModel.spaces.collectAsState()
-    val space = spaces.find { it.id == spaceId }
-    
-    val isFinished = space?.status?.uppercase() in listOf("3", "COMPLETED", "COMPLETADO", "FINISHED", "FINALIZADO", "4", "CANCELLED", "CANCELADO")
-    val statusLabel = when (space?.status?.uppercase()) {
-        "0", "PUBLISHED", "PUBLICADO" -> "Publicado"
-        "1", "ACCEPTED", "ACEPTADO" -> "Aceptado"
-        "2", "IN_PROGRESS", "EN_PROCESO" -> "En Progreso"
-        "3", "COMPLETED", "COMPLETADO", "FINISHED", "FINALIZADO" -> "Completado"
-        "4", "CANCELLED", "CANCELADO" -> "Cancelado"
-        else -> space?.status
-    }
+    val vehicles by spaceViewModel.vehicles.collectAsState()
+    val vehicle = vehicles.find { it.id == spaceId } ?: spaceViewModel.selectedVehicle.collectAsState().value
 
-    var showMenu by remember { mutableStateOf(false) }
-    var showDeleteDialog by remember { mutableStateOf(false) }
-    var showCompletedAlert by remember { mutableStateOf(false) }
-    var showTasksIncompleteAlert by remember { mutableStateOf(false) }
+    val reviews by spaceViewModel.reviews.collectAsState()
+    val bookingState by spaceViewModel.createBookingState.collectAsState()
 
-    val deleteState by spaceViewModel.deleteSpaceState.collectAsState()
+    var showBookingDialog by remember { mutableStateOf(false) }
+    var startDateText by remember { mutableStateOf("2026-10-10") }
+    var endDateText by remember { mutableStateOf("2026-10-14") }
 
-    LaunchedEffect(deleteState) {
-        if (deleteState?.isSuccess == true) {
-            spaceViewModel.resetStates()
-            navController.popBackStack()
-        }
-    }
+    var showReviewDialog by remember { mutableStateOf(false) }
+    var reviewRating by remember { mutableIntStateOf(5) }
+    var reviewComment by remember { mutableStateOf("") }
 
-    val tasksList by spaceViewModel.tasksList.collectAsState()
+    var alertMessage by remember { mutableStateOf<String?>(null) }
+
     LaunchedEffect(spaceId) {
-        if (token.isNotEmpty()) {
-            spaceViewModel.getTasksForSpace(token, spaceId)
+        spaceViewModel.fetchVehicleById(spaceId)
+        spaceViewModel.fetchVehicleReviews(spaceId)
+    }
+
+    LaunchedEffect(bookingState) {
+        if (bookingState?.isSuccess == true) {
+            alertMessage = "¡Reserva realizada exitosamente! Puedes revisarla en 'Mis Reservas'."
+            showBookingDialog = false
+            spaceViewModel.resetStates()
+        } else if (bookingState?.isFailure == true) {
+            alertMessage = bookingState?.exceptionOrNull()?.message ?: "Error al reservar"
         }
     }
 
-    val completadas = tasksList.count { it.status.equals("COMPLETED", ignoreCase = true) || it.status.equals("Completada", ignoreCase = true) }
-    val enProceso = tasksList.count { it.status.equals("IN_PROGRESS", ignoreCase = true) || it.status.equals("En proceso", ignoreCase = true) }
-    val pendientes = tasksList.count { it.status.equals("PENDING", ignoreCase = true) || it.status.equals("Pendiente", ignoreCase = true) }
-
-    if (showDeleteDialog) {
+    if (alertMessage != null) {
         AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Eliminar espacio", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = darkBlue) },
-            text = { Text("Esta acción quitará el espacio de tu\nlista", color = Color.Gray, fontSize = 16.sp) },
+            onDismissRequest = { alertMessage = null },
+            title = { Text("Notificación", fontWeight = FontWeight.Bold, color = darkBlue) },
+            text = { Text(alertMessage!!) },
+            confirmButton = {
+                Button(onClick = { alertMessage = null }, colors = ButtonDefaults.buttonColors(containerColor = darkBlue)) {
+                    Text("OK")
+                }
+            }
+        )
+    }
+
+    // Modal para Reservar Vehículo
+    if (showBookingDialog && vehicle != null) {
+        AlertDialog(
+            onDismissRequest = { showBookingDialog = false },
+            title = { Text("Reservar ${vehicle.brand} ${vehicle.model}", fontWeight = FontWeight.Bold, color = darkBlue) },
+            text = {
+                Column {
+                    Text("Precio: $${vehicle.pricePerDay} por día", fontWeight = FontWeight.SemiBold, color = Color.DarkGray)
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    OutlinedTextField(
+                        value = startDateText,
+                        onValueChange = { startDateText = it },
+                        label = { Text("Fecha de inicio (AAAA-MM-DD)") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    OutlinedTextField(
+                        value = endDateText,
+                        onValueChange = { endDateText = it },
+                        label = { Text("Fecha de fin (AAAA-MM-DD)") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
             confirmButton = {
                 Button(
                     onClick = {
-                        showDeleteDialog = false
-                        spaceViewModel.deleteSpace(token, userId, spaceId)
+                        spaceViewModel.createBooking(spaceId, startDateText.trim(), endDateText.trim())
                     },
-                    modifier = Modifier.fillMaxWidth().height(48.dp),
-                    shape = RoundedCornerShape(8.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = darkBlue)
                 ) {
-                    Text("Eliminar", color = Color.White)
+                    Text("Confirmar Reserva")
                 }
             },
             dismissButton = {
-                OutlinedButton(
-                    onClick = { showDeleteDialog = false },
-                    modifier = Modifier.fillMaxWidth().height(48.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    border = BorderStroke(1.dp, Color.LightGray)
-                ) {
+                TextButton(onClick = { showBookingDialog = false }) {
                     Text("Cancelar", color = Color.Gray)
                 }
-            },
-            containerColor = Color.White,
-            shape = RoundedCornerShape(16.dp)
+            }
         )
     }
 
-    if (showTasksIncompleteAlert) {
+    // Modal para Dejar Reseña
+    if (showReviewDialog) {
         AlertDialog(
-            onDismissRequest = { showTasksIncompleteAlert = false },
-            title = { Text("Tareas Pendientes", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = darkBlue) },
-            text = { Text("No se puede completar el espacio porque aún hay tareas pendientes o en proceso.", color = Color.Gray, fontSize = 16.sp) },
-            confirmButton = {
-                Button(
-                    onClick = { showTasksIncompleteAlert = false },
-                    modifier = Modifier.fillMaxWidth().height(48.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = darkBlue)
-                ) {
-                    Text("Entendido", color = Color.White)
+            onDismissRequest = { showReviewDialog = false },
+            title = { Text("Calificar Vehículo", fontWeight = FontWeight.Bold, color = darkBlue) },
+            text = {
+                Column {
+                    Text("Puntuación: $reviewRating estrellas", fontWeight = FontWeight.Medium)
+                    Slider(
+                        value = reviewRating.toFloat(),
+                        onValueChange = { reviewRating = it.toInt() },
+                        valueRange = 1f..5f,
+                        steps = 3
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = reviewComment,
+                        onValueChange = { reviewComment = it },
+                        label = { Text("Escribe tu experiencia...") },
+                        modifier = Modifier.fillMaxWidth(),
+                        maxLines = 3
+                    )
                 }
             },
-            containerColor = Color.White,
-            shape = RoundedCornerShape(16.dp)
-        )
-    }
-
-    if (showCompletedAlert) {
-        AlertDialog(
-            onDismissRequest = { showCompletedAlert = false },
-            title = { Text("Aprobación Requerida", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = darkBlue) },
-            text = { Text("Para cambiar el estado a completado, este proyecto primero tiene que ser aprobado por el remodelador.", color = Color.Gray, fontSize = 16.sp) },
             confirmButton = {
                 Button(
-                    onClick = { showCompletedAlert = false },
-                    modifier = Modifier.fillMaxWidth().height(48.dp),
-                    shape = RoundedCornerShape(8.dp),
+                    onClick = {
+                        if (reviewComment.isNotBlank()) {
+                            spaceViewModel.createReview(spaceId, reviewRating, reviewComment.trim())
+                            showReviewDialog = false
+                            reviewComment = ""
+                        }
+                    },
                     colors = ButtonDefaults.buttonColors(containerColor = darkBlue)
                 ) {
-                    Text("Entendido", color = Color.White)
+                    Text("Enviar Reseña")
                 }
             },
-            containerColor = Color.White,
-            shape = RoundedCornerShape(16.dp)
+            dismissButton = {
+                TextButton(onClick = { showReviewDialog = false }) {
+                    Text("Cerrar")
+                }
+            }
         )
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Detalle de espacio", fontWeight = FontWeight.Bold, color = darkBlue, fontSize = 22.sp) },
+                title = { Text(vehicle?.let { "${it.brand} ${it.model}" } ?: "Detalle del Vehículo", fontWeight = FontWeight.Bold, color = darkBlue) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = "Volver", tint = darkBlue)
                     }
                 },
-                actions = {
-                    Box {
-                        IconButton(onClick = { showMenu = true }) {
-                            Icon(Icons.Filled.MoreVert, contentDescription = "Opciones", tint = Color.Gray)
-                        }
-                        DropdownMenu(
-                            expanded = showMenu,
-                            onDismissRequest = { showMenu = false },
-                            modifier = Modifier.background(Color.White)
-                        ) {
-                            if (!isFinished) {
-                                DropdownMenuItem(
-                                    text = { Text("Marcar como Completado", color = darkBlue) },
-                                    onClick = {
-                                        showMenu = false
-                                        if (enProceso == 0 && pendientes == 0) {
-                                            spaceViewModel.completeSpace(token, userId, spaceId) { success ->
-                                                if (success) {
-                                                    navController.popBackStack()
-                                                } else {
-                                                    showCompletedAlert = true
-                                                }
-                                            }
-                                        } else {
-                                            showTasksIncompleteAlert = true
-                                        }
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Cancelar Espacio", color = darkBlue) },
-                                    onClick = {
-                                        showMenu = false
-                                        spaceViewModel.cancelSpaceDDD(token, userId, spaceId)
-                                        navController.popBackStack()
-                                    }
-                                )
-                            }
-                            DropdownMenuItem(
-                                text = { Text("Eliminar", color = Color.Red) },
-                                onClick = {
-                                    showMenu = false
-                                    showDeleteDialog = true
-                                }
-                            )
-                        }
-                    }
-                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
             )
         },
-        containerColor = Color.White
+        containerColor = Color(0xFFF8F9FA)
     ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(24.dp)
-                .verticalScroll(rememberScrollState())
-        ) {
-            Card(
-                shape = RoundedCornerShape(8.dp),
-                border = BorderStroke(1.dp, Color(0xFFE0E0E0)),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                modifier = Modifier.fillMaxWidth()
+        if (vehicle == null) {
+            Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = darkBlue)
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .padding(horizontal = 20.dp)
+                    .verticalScroll(rememberScrollState())
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(text = space?.title ?: "Cargando...", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = darkBlue)
-                        
-                        if (statusLabel != null) {
-                            Surface(
-                                shape = RoundedCornerShape(4.dp),
-                                color = when (space?.status?.uppercase()) {
-                                    "3", "COMPLETED", "COMPLETADO", "FINISHED", "FINALIZADO" -> Color(0xFFE8F5E9)
-                                    "4", "CANCELLED", "CANCELADO" -> Color(0xFFFFEBEE)
-                                    "2", "IN_PROGRESS", "EN_PROCESO" -> Color(0xFFE3F2FD)
-                                    else -> Color(0xFFF5F5F5)
-                                }
-                            ) {
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Imagen principal
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp)
+                        .background(Color.White, shape = RoundedCornerShape(16.dp))
+                ) {
+                    val resolvedUrl = RetrofitClient.resolveImageUrl(vehicle.imageUrl)
+                    if (!resolvedUrl.isNullOrBlank()) {
+                        AsyncImage(
+                            model = resolvedUrl,
+                            contentDescription = "${vehicle.brand} ${vehicle.model}",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Image(
+                            painter = painterResource(id = R.drawable.renticar2),
+                            contentDescription = null,
+                            modifier = Modifier.size(120.dp).align(Alignment.Center)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Ficha del Vehículo
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    shape = RoundedCornerShape(14.dp),
+                    border = BorderStroke(1.dp, Color(0xFFE5E7E9)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(18.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
                                 Text(
-                                    text = statusLabel,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                                    fontSize = 12.sp,
+                                    text = "${vehicle.brand} ${vehicle.model}",
+                                    fontSize = 22.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = when (space?.status?.uppercase()) {
-                                        "3", "COMPLETED", "COMPLETADO", "FINISHED", "FINALIZADO" -> Color(0xFF2E7D32)
-                                        "4", "CANCELLED", "CANCELADO" -> Color(0xFFC62828)
-                                        "2", "IN_PROGRESS", "EN_PROCESO" -> Color(0xFF1976D2)
-                                        else -> Color.DarkGray
-                                    }
+                                    color = darkBlue
                                 )
+                                Text(
+                                    text = "Año ${vehicle.year}",
+                                    fontSize = 15.sp,
+                                    color = Color.Gray
+                                )
+                            }
+                            Text(
+                                text = "$${vehicle.pricePerDay}/día",
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF064B78)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Button(
+                            onClick = { showBookingDialog = true },
+                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = darkBlue),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.Filled.Event, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Reservar este vehículo", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+
+                // Sección de Reseñas
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    shape = RoundedCornerShape(14.dp),
+                    border = BorderStroke(1.dp, Color(0xFFE5E7E9)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(18.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Reseñas (${reviews.size})", fontWeight = FontWeight.Bold, fontSize = 17.sp, color = darkBlue)
+                            TextButton(onClick = { showReviewDialog = true }) {
+                                Text("+ Dejar reseña", color = accentBlue)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        if (reviews.isEmpty()) {
+                            Text("Aún no hay reseñas para este vehículo.", fontSize = 14.sp, color = Color.Gray)
+                        } else {
+                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                reviews.forEach { review ->
+                                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Column {
+                                            Row {
+                                                repeat(review.rating) {
+                                                    Icon(Icons.Filled.Star, contentDescription = null, tint = Color(0xFFF1C40F), modifier = Modifier.size(16.dp))
+                                                }
+                                            }
+                                            Spacer(modifier = Modifier.height(2.dp))
+                                            Text(review.comment, fontSize = 14.sp, color = Color.DarkGray)
+                                        }
+                                    }
+                                    HorizontalDivider(color = Color(0xFFF5F5F5))
+                                }
                             }
                         }
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(text = space?.location ?: "", color = Color.Gray, fontSize = 14.sp)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(text = "Estado: ${space?.status ?: ""}", color = Color.Gray, fontSize = 14.sp)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(text = "Presupuesto: ${space?.currency ?: ""} ${space?.estimatedBudget ?: ""}", color = Color.Gray, fontSize = 14.sp)
                 }
-            }
 
-            Spacer(modifier = Modifier.height(24.dp))
-            Text(text = "Resumen de tareas", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = darkBlue)
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = {}, shape = RoundedCornerShape(20.dp), border = BorderStroke(1.dp, Color(0xFF27AE60)), contentPadding = PaddingValues(horizontal = 12.dp)) {
-                    Text("$completadas completadas", color = Color.DarkGray, fontSize = 12.sp)
-                }
-                OutlinedButton(onClick = {}, shape = RoundedCornerShape(20.dp), border = BorderStroke(1.dp, darkBlue), contentPadding = PaddingValues(horizontal = 12.dp)) {
-                    Text("$enProceso en proceso", color = Color.DarkGray, fontSize = 12.sp)
-                }
-                OutlinedButton(onClick = {}, shape = RoundedCornerShape(20.dp), border = BorderStroke(1.dp, Color(0xFFD68910)), contentPadding = PaddingValues(horizontal = 12.dp)) {
-                    Text("$pendientes pendiente${if (pendientes != 1) "s" else ""}", color = Color.DarkGray, fontSize = 12.sp)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-            Text(text = "Opciones", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = darkBlue)
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedButton(
-                    onClick = { navController.navigate("monitoreoEspacio/$spaceId") },
-                    modifier = Modifier.weight(1f).height(80.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    border = BorderStroke(1.dp, Color(0xFFE0E0E0)),
-                    enabled = !isFinished
-                ) {
-                    Text("Monitoreo", color = if (isFinished) Color.Gray else darkBlue, fontWeight = FontWeight.Bold)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(32.dp))
-            Button(
-                onClick = {
-                    navController.navigate("solicitarTarea/${spaceId}")
-                },
-                modifier = Modifier.fillMaxWidth().height(50.dp),
-                shape = RoundedCornerShape(8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = darkBlue),
-                enabled = !isFinished
-            ) {
-                Text("Solicitar Nueva Tarea", fontSize = 16.sp, color = Color.White)
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Button(
-                onClick = {
-                    navController.navigate("tareasEspacio/$spaceId")
-                },
-                modifier = Modifier.fillMaxWidth().height(50.dp),
-                shape = RoundedCornerShape(8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2C3E50))
-            ) {
-                Text("Ver Lista de Tareas", fontSize = 16.sp, color = Color.White)
+                Spacer(modifier = Modifier.height(30.dp))
             }
         }
     }

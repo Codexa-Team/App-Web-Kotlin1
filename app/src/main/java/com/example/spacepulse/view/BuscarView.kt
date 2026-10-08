@@ -1,32 +1,16 @@
 package com.example.spacepulse.view
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -34,188 +18,188 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
+import com.example.spacepulse.viewmodel.SpaceViewModel
 
 @Composable
-fun BuscarView() {
+fun BuscarView(
+    navController: NavController,
+    spaceViewModel: SpaceViewModel
+) {
     val darkBlue = Color(0xFF064B78)
-    val lightBackground = Color(0xFFF4F4F4)
+    val lightBackground = Color(0xFFF8F9FA)
     val borderGray = Color(0xFFE0E0E0)
 
-    var vehicleName by remember { mutableStateOf("") }
-    var brand by remember { mutableStateOf("") }
-    var minimumPrice by remember { mutableStateOf("") }
-    var maximumPrice by remember { mutableStateOf("") }
+    var vehicleQuery by remember { mutableStateOf("") }
+    var brandFilter by remember { mutableStateOf("") }
+    var minPrice by remember { mutableStateOf("") }
+    var maxPrice by remember { mutableStateOf("") }
+
+    val vehicles by spaceViewModel.vehicles.collectAsState()
+
+    // Filtrar los vehículos del backend en tiempo real
+    val filteredVehicles = remember(vehicles, vehicleQuery, brandFilter, minPrice, maxPrice) {
+        vehicles.filter { v ->
+            val matchesQuery = vehicleQuery.isBlank() ||
+                    v.model.contains(vehicleQuery, ignoreCase = true) ||
+                    v.brand.contains(vehicleQuery, ignoreCase = true)
+            val matchesBrand = brandFilter.isBlank() ||
+                    v.brand.contains(brandFilter, ignoreCase = true)
+            val minVal = minPrice.toDoubleOrNull()
+            val maxVal = maxPrice.toDoubleOrNull()
+            val matchesMin = minVal == null || v.pricePerDay >= minVal
+            val matchesMax = maxVal == null || v.pricePerDay <= maxVal
+
+            matchesQuery && matchesBrand && matchesMin && matchesMax
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        spaceViewModel.fetchVehicles()
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(lightBackground)
-            .padding(horizontal = 24.dp, vertical = 28.dp)
+            .padding(horizontal = 20.dp, vertical = 20.dp)
+            .verticalScroll(rememberScrollState())
     ) {
         Text(
             text = "Buscar Vehículos",
             color = darkBlue,
-            fontSize = 22.sp,
+            fontSize = 24.sp,
             fontWeight = FontWeight.Bold
         )
+        Text(
+            text = "Filtra por marca, modelo o rango de precios",
+            color = Color.Gray,
+            fontSize = 14.sp
+        )
 
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            OutlinedTextField(
-                value = vehicleName,
-                onValueChange = { vehicleName = it },
-                placeholder = { Text("Nombre del vehículo", color = Color.Gray) },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Filled.Search,
-                        contentDescription = "Buscar por nombre",
-                        tint = darkBlue
-                    )
-                },
-                singleLine = true,
-                shape = RoundedCornerShape(10.dp),
-                modifier = Modifier.weight(1f),
-                colors = searchFieldColors(borderGray, darkBlue, lightBackground)
-            )
-
-            Button(
-                onClick = { vehicleName = vehicleName.trim() },
-                shape = RoundedCornerShape(10.dp),
-                contentPadding = ButtonDefaults.ContentPadding,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4DB7ED)),
-                modifier = Modifier.height(56.dp)
-            ) {
-                Text(
-                    text = "Buscar",
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold
+        // Campo de búsqueda principal
+        OutlinedTextField(
+            value = vehicleQuery,
+            onValueChange = { vehicleQuery = it },
+            placeholder = { Text("Buscar modelo o marca...", color = Color.Gray) },
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Filled.Search,
+                    contentDescription = "Buscar",
+                    tint = darkBlue
                 )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(18.dp))
-
-        Text(
-            text = "Filtrar por marca:",
-            color = darkBlue,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold
+            },
+            trailingIcon = {
+                if (vehicleQuery.isNotEmpty()) {
+                    IconButton(onClick = { vehicleQuery = "" }) {
+                        Icon(Icons.Filled.Clear, contentDescription = "Limpiar", tint = Color.Gray)
+                    }
+                }
+            },
+            singleLine = true,
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier.fillMaxWidth(),
+            colors = searchFieldColors(borderGray, darkBlue, Color.White)
         )
 
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // Filtro por marca
+        Text(
+            text = "Marca:",
+            color = darkBlue,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.SemiBold
+        )
         Spacer(modifier = Modifier.height(6.dp))
-
-        FilterInput(
-            value = brand,
-            onValueChange = { brand = it },
-            placeholder = "Ej. Toyota",
-            onAdd = { brand = brand.trim() },
-            darkBlue = darkBlue,
-            borderGray = borderGray,
-            background = lightBackground
+        OutlinedTextField(
+            value = brandFilter,
+            onValueChange = { brandFilter = it },
+            placeholder = { Text("Ej. Toyota, Hyundai, Nissan...", color = Color.Gray) },
+            singleLine = true,
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier.fillMaxWidth(),
+            colors = searchFieldColors(borderGray, darkBlue, Color.White)
         )
 
-        Spacer(modifier = Modifier.height(18.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
+        // Filtro por rango de precio por día
         Text(
-            text = "Filtrar por rango de precios:",
+            text = "Rango de precio por día ($):",
             color = darkBlue,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold
+            fontSize = 15.sp,
+            fontWeight = FontWeight.SemiBold
         )
-
         Spacer(modifier = Modifier.height(6.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             OutlinedTextField(
-                value = minimumPrice,
-                onValueChange = { minimumPrice = it },
-                placeholder = { Text("Precio mínimo", color = Color.Gray) },
+                value = minPrice,
+                onValueChange = { minPrice = it },
+                placeholder = { Text("Mínimo", color = Color.Gray) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 shape = RoundedCornerShape(10.dp),
                 modifier = Modifier.weight(1f),
-                colors = searchFieldColors(borderGray, darkBlue, lightBackground)
+                colors = searchFieldColors(borderGray, darkBlue, Color.White)
             )
 
             OutlinedTextField(
-                value = maximumPrice,
-                onValueChange = { maximumPrice = it },
-                placeholder = { Text("Precio máximo", color = Color.Gray) },
+                value = maxPrice,
+                onValueChange = { maxPrice = it },
+                placeholder = { Text("Máximo", color = Color.Gray) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 shape = RoundedCornerShape(10.dp),
                 modifier = Modifier.weight(1f),
-                colors = searchFieldColors(borderGray, darkBlue, lightBackground)
+                colors = searchFieldColors(borderGray, darkBlue, Color.White)
             )
-
-            IconButton(
-                onClick = {
-                    minimumPrice = minimumPrice.trim()
-                    maximumPrice = maximumPrice.trim()
-                },
-                modifier = Modifier
-                    .size(52.dp)
-                    .padding(2.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Add,
-                    contentDescription = "Agregar rango de precios",
-                    tint = darkBlue,
-                    modifier = Modifier
-                        .size(48.dp)
-                        .padding(12.dp)
-                )
-            }
         }
-    }
-}
 
-@Composable
-private fun FilterInput(
-    value: String,
-    onValueChange: (String) -> Unit,
-    placeholder: String,
-    onAdd: () -> Unit,
-    darkBlue: Color,
-    borderGray: Color,
-    background: Color
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        OutlinedTextField(
-            value = value,
-            onValueChange = onValueChange,
-            placeholder = { Text(placeholder, color = Color.Gray) },
-            singleLine = true,
-            shape = RoundedCornerShape(10.dp),
-            modifier = Modifier.weight(1f),
-            colors = searchFieldColors(borderGray, darkBlue, background)
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Resultados
+        Text(
+            text = "Resultados (${filteredVehicles.size})",
+            color = darkBlue,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold
         )
 
-        IconButton(
-            onClick = onAdd,
-            modifier = Modifier
-                .size(52.dp)
-                .padding(start = 8.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Filled.Add,
-                contentDescription = "Agregar marca",
-                tint = darkBlue,
-                modifier = Modifier.size(28.dp)
-            )
+        Spacer(modifier = Modifier.height(12.dp))
+
+        if (filteredVehicles.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 32.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "No se encontraron vehículos con estos filtros",
+                    color = Color.Gray,
+                    fontSize = 15.sp
+                )
+            }
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                filteredVehicles.forEach { vehicle ->
+                    VehicleCard(
+                        vehicle = vehicle,
+                        onClick = { navController.navigate("detalleEspacio/${vehicle.id}") }
+                    )
+                }
+            }
         }
+
+        Spacer(modifier = Modifier.height(24.dp))
     }
 }
 
