@@ -23,6 +23,12 @@ class AuthViewModel : ViewModel() {
     private val _paymentState = MutableStateFlow<Result<String>?>(null)
     val paymentState: StateFlow<Result<String>?> = _paymentState
 
+    private val _updateProfileState = MutableStateFlow<Result<String>?>(null)
+    val updateProfileState: StateFlow<Result<String>?> = _updateProfileState
+
+    private val _updatePasswordState = MutableStateFlow<Result<String>?>(null)
+    val updatePasswordState: StateFlow<Result<String>?> = _updatePasswordState
+
     fun login(email: String, password: String, context: Context) {
         viewModelScope.launch {
             try {
@@ -127,6 +133,108 @@ class AuthViewModel : ViewModel() {
         }
     }
 
+    fun updateEmail(context: Context, newEmail: String) {
+        viewModelScope.launch {
+            try {
+                val sharedPref = context.getSharedPreferences("SpacePulsePrefs", Context.MODE_PRIVATE)
+                val userIdStr = sharedPref.getString("USER_ID", "") ?: ""
+                val userIdLong = userIdStr.toLongOrNull() ?: _userProfile.value?.id?.toLongOrNull()
+
+                if (userIdLong == null) {
+                    _updateProfileState.value = Result.failure(Exception("ID de usuario no encontrado"))
+                    return@launch
+                }
+
+                val currentName = sharedPref.getString("USER_FULL_NAME", "")?.takeIf { it.isNotBlank() }
+                    ?: _userProfile.value?.fullName
+                    ?: "Usuario"
+
+                val request = UpdateUserRequest(
+                    name = currentName,
+                    email = newEmail.trim()
+                )
+
+                val response = RetrofitClient.webService.updateUserProfile(userIdLong, request)
+                if (response.isSuccessful && response.body() != null) {
+                    val updatedUser = response.body()!!
+
+                    // Actualizar en SharedPreferences
+                    with(sharedPref.edit()) {
+                        putString("USER_EMAIL", updatedUser.email)
+                        apply()
+                    }
+
+                    // Actualizar en memoria
+                    _userProfile.value = _userProfile.value?.copy(
+                        email = updatedUser.email
+                    ) ?: UserProfileResponse(
+                        id = updatedUser.id.toString(),
+                        fullName = updatedUser.name,
+                        email = updatedUser.email,
+                        phone = null,
+                        role = updatedUser.roles.firstOrNull() ?: "ROLE_ARRENDATARIO",
+                        photo = null,
+                        paymentMethods = emptyList()
+                    )
+
+                    _updateProfileState.value = Result.success("Correo actualizado correctamente")
+                } else {
+                    val errorMsg = if (response.code() == 409) "El correo ya está registrado por otro usuario" else "Error al actualizar correo (${response.code()})"
+                    _updateProfileState.value = Result.failure(Exception(errorMsg))
+                }
+            } catch (e: Exception) {
+                _updateProfileState.value = Result.failure(Exception(e.localizedMessage ?: "Error de conexión con el servidor"))
+            }
+        }
+    }
+
+    fun resetUpdateProfileState() {
+        _updateProfileState.value = null
+    }
+
+    fun updatePassword(context: Context, currentPass: String, newPass: String) {
+        viewModelScope.launch {
+            try {
+                val sharedPref = context.getSharedPreferences("SpacePulsePrefs", Context.MODE_PRIVATE)
+                val token = sharedPref.getString("USER_TOKEN", "") ?: ""
+                if (RetrofitClient.authToken.isNullOrBlank() && token.isNotBlank()) {
+                    RetrofitClient.authToken = token
+                }
+
+                val userIdStr = sharedPref.getString("USER_ID", "") ?: ""
+                val userIdLong = userIdStr.toLongOrNull() ?: _userProfile.value?.id?.toLongOrNull()
+
+                if (userIdLong == null) {
+                    _updatePasswordState.value = Result.failure(Exception("ID de usuario no encontrado"))
+                    return@launch
+                }
+
+                val request = UpdatePasswordRequest(
+                    currentPassword = currentPass.trim(),
+                    newPassword = newPass.trim()
+                )
+
+                val response = RetrofitClient.webService.updatePassword(userIdLong, request)
+                if (response.isSuccessful) {
+                    _updatePasswordState.value = Result.success("Contraseña actualizada con éxito")
+                } else {
+                    val errorMsg = when (response.code()) {
+                        400, 401, 500 -> "La contraseña actual es incorrecta o no cumple los requisitos"
+                        404 -> "Usuario no encontrado"
+                        else -> "Error al cambiar contraseña (${response.code()})"
+                    }
+                    _updatePasswordState.value = Result.failure(Exception(errorMsg))
+                }
+            } catch (e: Exception) {
+                _updatePasswordState.value = Result.failure(Exception(e.localizedMessage ?: "Error al conectar con el servidor"))
+            }
+        }
+    }
+
+    fun resetUpdatePasswordState() {
+        _updatePasswordState.value = null
+    }
+
     fun logout(context: Context) {
         val sharedPref = context.getSharedPreferences("SpacePulsePrefs", Context.MODE_PRIVATE)
         with(sharedPref.edit()) {
@@ -136,11 +244,15 @@ class AuthViewModel : ViewModel() {
         RetrofitClient.authToken = null
         _loginState.value = null
         _userProfile.value = null
+        _updateProfileState.value = null
+        _updatePasswordState.value = null
     }
 
     fun resetStates() {
         _loginState.value = null
         _registerState.value = null
         _paymentState.value = null
+        _updateProfileState.value = null
+        _updatePasswordState.value = null
     }
 }

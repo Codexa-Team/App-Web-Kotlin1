@@ -1,6 +1,7 @@
 package com.example.spacepulse.view
 
 import android.content.Context
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -11,11 +12,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Dns
-import androidx.compose.material.icons.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,6 +27,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
@@ -39,16 +43,30 @@ fun PerfilView(navController: NavController, viewModel: AuthViewModel) {
     val lightBackground = Color(0xFFF8F9FA)
 
     val userProfile by viewModel.userProfile.collectAsState()
+    val updateEmailState by viewModel.updateProfileState.collectAsState()
+    val updatePasswordState by viewModel.updatePasswordState.collectAsState()
 
     val sharedPref = context.getSharedPreferences("SpacePulsePrefs", Context.MODE_PRIVATE)
-    val fullName = sharedPref.getString("USER_FULL_NAME", "Usuario") ?: "Usuario"
-    val email = sharedPref.getString("USER_EMAIL", "correo@email.com") ?: "correo@email.com"
-    val userRole = sharedPref.getString("USER_ROLE", "ROLE_ARRENDATARIO") ?: "ROLE_ARRENDATARIO"
+    val fullName = userProfile?.fullName ?: (sharedPref.getString("USER_FULL_NAME", "Usuario") ?: "Usuario")
+    val email = userProfile?.email ?: (sharedPref.getString("USER_EMAIL", "correo@email.com") ?: "correo@email.com")
+    val userRole = userProfile?.role ?: (sharedPref.getString("USER_ROLE", "ROLE_ARRENDATARIO") ?: "ROLE_ARRENDATARIO")
     val token = sharedPref.getString("USER_TOKEN", "") ?: ""
     val userId = sharedPref.getString("USER_ID", "") ?: ""
 
-    var showServerDialog by remember { mutableStateOf(false) }
-    var currentBaseUrl by remember { mutableStateOf(RetrofitClient.getBaseUrl()) }
+    // Estados para editar correo
+    var showEditEmailDialog by remember { mutableStateOf(false) }
+    var newEmailText by remember { mutableStateOf("") }
+    var isUpdatingEmail by remember { mutableStateOf(false) }
+
+    // Estados para cambiar contraseña
+    var showChangePasswordDialog by remember { mutableStateOf(false) }
+    var currentPasswordText by remember { mutableStateOf("") }
+    var newPasswordText by remember { mutableStateOf("") }
+    var confirmPasswordText by remember { mutableStateOf("") }
+    var showCurrentPassword by remember { mutableStateOf(false) }
+    var showNewPassword by remember { mutableStateOf(false) }
+    var showConfirmPassword by remember { mutableStateOf(false) }
+    var isUpdatingPassword by remember { mutableStateOf(false) }
 
     val roleLabel = if (userRole.contains("arrendador", ignoreCase = true)) "Propietario (Arrendador)" else "Cliente (Arrendatario)"
 
@@ -58,63 +76,243 @@ fun PerfilView(navController: NavController, viewModel: AuthViewModel) {
         }
     }
 
-    // Modal para cambiar IP del Servidor
-    if (showServerDialog) {
+    // Efecto para respuesta de cambio de correo
+    LaunchedEffect(updateEmailState) {
+        updateEmailState?.let { result ->
+            isUpdatingEmail = false
+            result.onSuccess { message ->
+                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                showEditEmailDialog = false
+                viewModel.resetUpdateProfileState()
+            }.onFailure { err ->
+                Toast.makeText(context, err.message ?: "Error al actualizar correo", Toast.LENGTH_LONG).show()
+                viewModel.resetUpdateProfileState()
+            }
+        }
+    }
+
+    // Efecto para respuesta de cambio de contraseña
+    LaunchedEffect(updatePasswordState) {
+        updatePasswordState?.let { result ->
+            isUpdatingPassword = false
+            result.onSuccess { message ->
+                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                showChangePasswordDialog = false
+                currentPasswordText = ""
+                newPasswordText = ""
+                confirmPasswordText = ""
+                viewModel.resetUpdatePasswordState()
+            }.onFailure { err ->
+                Toast.makeText(context, err.message ?: "Error al cambiar contraseña", Toast.LENGTH_LONG).show()
+                viewModel.resetUpdatePasswordState()
+            }
+        }
+    }
+
+    // Modal para editar correo electrónico
+    if (showEditEmailDialog) {
         AlertDialog(
-            onDismissRequest = { showServerDialog = false },
-            title = { Text("Configurar Servidor Backend", fontWeight = FontWeight.Bold, color = darkBlue) },
+            onDismissRequest = {
+                if (!isUpdatingEmail) showEditEmailDialog = false
+            },
+            title = {
+                Text(
+                    text = "Editar Correo Electrónico",
+                    fontWeight = FontWeight.Bold,
+                    color = darkBlue
+                )
+            },
             text = {
                 Column {
-                    Text("Selecciona o escribe la dirección IP de tu backend Spring Boot:", fontSize = 14.sp, color = Color.Gray)
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    OutlinedButton(
-                        onClick = {
-                            currentBaseUrl = RetrofitClient.EMULATOR_BASE_URL
-                            RetrofitClient.setBaseUrl(currentBaseUrl)
-                            showServerDialog = false
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Emulador Android Studio (10.0.2.2:8080)")
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    OutlinedButton(
-                        onClick = {
-                            currentBaseUrl = RetrofitClient.LAN_BASE_URL
-                            RetrofitClient.setBaseUrl(currentBaseUrl)
-                            showServerDialog = false
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Celular Físico Wi-Fi (192.168.18.85:8080)")
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    OutlinedTextField(
-                        value = currentBaseUrl,
-                        onValueChange = { currentBaseUrl = it },
-                        label = { Text("URL Personalizada") },
-                        modifier = Modifier.fillMaxWidth()
+                    Text(
+                        text = "Ingresa tu nueva dirección de correo electrónico:",
+                        fontSize = 14.sp,
+                        color = Color.Gray
                     )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = newEmailText,
+                        onValueChange = { newEmailText = it },
+                        label = { Text("Correo Electrónico") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isUpdatingEmail
+                    )
+                    if (isUpdatingEmail) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                color = darkBlue,
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Guardando en la base de datos...", fontSize = 13.sp, color = darkBlue)
+                        }
+                    }
                 }
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        RetrofitClient.setBaseUrl(currentBaseUrl)
-                        showServerDialog = false
+                        val trimmed = newEmailText.trim()
+                        if (trimmed.isEmpty() || !trimmed.contains("@")) {
+                            Toast.makeText(context, "Ingresa un correo electrónico válido", Toast.LENGTH_SHORT).show()
+                        } else {
+                            isUpdatingEmail = true
+                            viewModel.updateEmail(context, trimmed)
+                        }
                     },
+                    enabled = !isUpdatingEmail,
                     colors = ButtonDefaults.buttonColors(containerColor = darkBlue)
                 ) {
                     Text("Guardar")
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showServerDialog = false }) {
+                TextButton(
+                    onClick = { showEditEmailDialog = false },
+                    enabled = !isUpdatingEmail
+                ) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
+
+    // Modal para cambiar contraseña
+    if (showChangePasswordDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                if (!isUpdatingPassword) showChangePasswordDialog = false
+            },
+            title = {
+                Text(
+                    text = "Cambiar Contraseña",
+                    fontWeight = FontWeight.Bold,
+                    color = darkBlue
+                )
+            },
+            text = {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    Text(
+                        text = "Ingresa tu contraseña actual y define tu nueva contraseña:",
+                        fontSize = 14.sp,
+                        color = Color.Gray
+                    )
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    OutlinedTextField(
+                        value = currentPasswordText,
+                        onValueChange = { currentPasswordText = it },
+                        label = { Text("Contraseña Actual") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isUpdatingPassword,
+                        visualTransformation = if (showCurrentPassword) VisualTransformation.None else PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = { showCurrentPassword = !showCurrentPassword }) {
+                                Icon(
+                                    imageVector = if (showCurrentPassword) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                                    contentDescription = if (showCurrentPassword) "Ocultar" else "Mostrar"
+                                )
+                            }
+                        }
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    OutlinedTextField(
+                        value = newPasswordText,
+                        onValueChange = { newPasswordText = it },
+                        label = { Text("Nueva Contraseña") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isUpdatingPassword,
+                        visualTransformation = if (showNewPassword) VisualTransformation.None else PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = { showNewPassword = !showNewPassword }) {
+                                Icon(
+                                    imageVector = if (showNewPassword) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                                    contentDescription = if (showNewPassword) "Ocultar" else "Mostrar"
+                                )
+                            }
+                        }
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    OutlinedTextField(
+                        value = confirmPasswordText,
+                        onValueChange = { confirmPasswordText = it },
+                        label = { Text("Confirmar Nueva Contraseña") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isUpdatingPassword,
+                        visualTransformation = if (showConfirmPassword) VisualTransformation.None else PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = { showConfirmPassword = !showConfirmPassword }) {
+                                Icon(
+                                    imageVector = if (showConfirmPassword) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                                    contentDescription = if (showConfirmPassword) "Ocultar" else "Mostrar"
+                                )
+                            }
+                        }
+                    )
+
+                    if (isUpdatingPassword) {
+                        Spacer(modifier = Modifier.height(14.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                color = darkBlue,
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Guardando en la base de datos...", fontSize = 13.sp, color = darkBlue)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val current = currentPasswordText.trim()
+                        val newPass = newPasswordText.trim()
+                        val confirm = confirmPasswordText.trim()
+
+                        if (current.isEmpty()) {
+                            Toast.makeText(context, "Ingresa tu contraseña actual", Toast.LENGTH_SHORT).show()
+                        } else if (newPass.isEmpty()) {
+                            Toast.makeText(context, "Ingresa la nueva contraseña", Toast.LENGTH_SHORT).show()
+                        } else if (newPass.length < 6) {
+                            Toast.makeText(context, "La nueva contraseña debe tener al menos 6 caracteres", Toast.LENGTH_SHORT).show()
+                        } else if (newPass != confirm) {
+                            Toast.makeText(context, "Las nuevas contraseñas no coinciden", Toast.LENGTH_SHORT).show()
+                        } else {
+                            isUpdatingPassword = true
+                            viewModel.updatePassword(context, current, newPass)
+                        }
+                    },
+                    enabled = !isUpdatingPassword,
+                    colors = ButtonDefaults.buttonColors(containerColor = darkBlue)
+                ) {
+                    Text("Guardar")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showChangePasswordDialog = false },
+                    enabled = !isUpdatingPassword
+                ) {
                     Text("Cancelar")
                 }
             }
@@ -187,65 +385,65 @@ fun PerfilView(navController: NavController, viewModel: AuthViewModel) {
             colors = CardDefaults.cardColors(containerColor = Color.White),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(text = "Correo Electrónico", color = Color.Gray, fontSize = 13.sp)
-                Text(text = email, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, color = darkBlue)
+            Column {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(text = "Correo Electrónico", color = Color.Gray, fontSize = 13.sp)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(text = email, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, color = darkBlue)
+                    }
+                    IconButton(
+                        onClick = {
+                            newEmailText = email
+                            showEditEmailDialog = true
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Edit,
+                            contentDescription = "Editar correo",
+                            tint = darkBlue
+                        )
+                    }
+                }
 
-                Spacer(modifier = Modifier.height(12.dp))
                 HorizontalDivider(color = Color(0xFFF5F5F5))
-                Spacer(modifier = Modifier.height(12.dp))
 
-                Text(text = "ID de Usuario", color = Color.Gray, fontSize = 13.sp)
-                Text(text = userId.ifEmpty { "1" }, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, color = darkBlue)
-            }
-        }
-
-        Spacer(modifier = Modifier.height(18.dp))
-
-        // Tarjeta para alternar vista (Propietario / Cliente)
-        Card(
-            shape = RoundedCornerShape(10.dp),
-            border = BorderStroke(1.dp, Color(0xFF3498DB).copy(alpha = 0.4f)),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFFEBF5FB)),
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable {
-                    val currentRole = sharedPref.getString("USER_ROLE", "ROLE_ARRENDATARIO") ?: "ROLE_ARRENDATARIO"
-                    val newRole = if (currentRole.contains("arrendador", ignoreCase = true)) "ROLE_ARRENDATARIO" else "ROLE_ARRENDADOR"
-                    sharedPref.edit().putString("USER_ROLE", newRole).apply()
-                    navController.navigate("clientHome") {
-                        popUpTo("clientHome") { inclusive = true }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(text = "Contraseña", color = Color.Gray, fontSize = 13.sp)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(text = "••••••••••••", fontWeight = FontWeight.SemiBold, fontSize = 16.sp, color = darkBlue)
                     }
-                }
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.Refresh, contentDescription = null, tint = Color(0xFF2980B9), modifier = Modifier.size(24.dp))
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            text = "Cambiar Modo de Vista",
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1B4F72),
-                            fontSize = 15.sp
-                        )
-                        Text(
-                            text = if (userRole.contains("arrendador", ignoreCase = true))
-                                "Modo Propietario activo ➔ Toca para modo Cliente"
-                            else
-                                "Modo Cliente activo ➔ Toca para modo Propietario",
-                            fontSize = 12.sp,
-                            color = Color.DarkGray
+                    IconButton(
+                        onClick = {
+                            currentPasswordText = ""
+                            newPasswordText = ""
+                            confirmPasswordText = ""
+                            showCurrentPassword = false
+                            showNewPassword = false
+                            showConfirmPassword = false
+                            showChangePasswordDialog = true
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Edit,
+                            contentDescription = "Cambiar contraseña",
+                            tint = darkBlue
                         )
                     }
                 }
-                Icon(Icons.Filled.KeyboardArrowRight, contentDescription = null, tint = Color(0xFF2980B9))
             }
         }
 
@@ -264,20 +462,25 @@ fun PerfilView(navController: NavController, viewModel: AuthViewModel) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { showServerDialog = true }
+                        .clickable {
+                            currentPasswordText = ""
+                            newPasswordText = ""
+                            confirmPasswordText = ""
+                            showCurrentPassword = false
+                            showNewPassword = false
+                            showConfirmPassword = false
+                            showChangePasswordDialog = true
+                        }
                         .padding(16.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Filled.Dns, contentDescription = null, tint = darkBlue, modifier = Modifier.size(22.dp))
+                        Icon(Icons.Filled.Lock, contentDescription = null, tint = darkBlue, modifier = Modifier.size(22.dp))
                         Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text(text = "Servidor Backend IP", color = darkBlue, fontSize = 15.sp, fontWeight = FontWeight.Medium)
-                            Text(text = RetrofitClient.getBaseUrl(), color = Color.Gray, fontSize = 12.sp)
-                        }
+                        Text(text = "Cambiar Contraseña", color = darkBlue, fontSize = 15.sp, fontWeight = FontWeight.Medium)
                     }
-                    Icon(Icons.Filled.KeyboardArrowRight, contentDescription = null, tint = Color.Gray)
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = Color.Gray)
                 }
 
                 HorizontalDivider(color = Color(0xFFF5F5F5))
@@ -295,7 +498,7 @@ fun PerfilView(navController: NavController, viewModel: AuthViewModel) {
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(text = "Configuración General", color = darkBlue, fontSize = 15.sp, fontWeight = FontWeight.Medium)
                     }
-                    Icon(Icons.Filled.KeyboardArrowRight, contentDescription = null, tint = Color.Gray)
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = Color.Gray)
                 }
             }
         }

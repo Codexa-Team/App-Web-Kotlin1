@@ -93,35 +93,6 @@ fun DashboardView(
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // Banner Promocional / Accesos Rápidos
-        Card(
-            colors = CardDefaults.cardColors(containerColor = darkBlue),
-            shape = RoundedCornerShape(16.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(
-                modifier = Modifier.padding(20.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Alquiler Inteligente", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text("Vehículos verificados con rastreo GPS y telemetría en tiempo real", color = Color(0xFFCFD8DC), fontSize = 13.sp)
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Button(
-                        onClick = { onTabSelected(2) }, // Tab Buscar
-                        colors = ButtonDefaults.buttonColors(containerColor = accentBlue),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Icon(Icons.Filled.Search, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Explorar autos", fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
 
         // Botón para publicar si es Arrendador
         if (userRole.contains("arrendador", ignoreCase = true) || userRole.contains("owner", ignoreCase = true)) {

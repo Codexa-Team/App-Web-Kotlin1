@@ -116,42 +116,28 @@ fun LoginScreen(navController: NavController, viewModel: AuthViewModel) {
             singleLine = true
         )
 
-        Row(
+        Box(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            contentAlignment = Alignment.CenterEnd
         ) {
-            TextButton(
-                onClick = {
-                    email = "sergio@example.com"
-                    password = "Password123!"
-                }
-            ) {
-                Text("Usar cuenta de prueba", color = Color(0xFF4DB7ED), fontSize = 13.sp)
-            }
-
-            TextButton(
-                onClick = { }
-            ) {
+            TextButton(onClick = { }) {
                 Text("¿Olvidaste tu contraseña?", color = darkBlue, fontSize = 13.sp)
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
         Button(
             onClick = {
                 if (email.isNotBlank() && password.isNotBlank()) {
                     isLoading = true
                     viewModel.login(email.trim(), password, context)
-                } else {
-                    navController.navigate(route = "clientHome")
                 }
             },
             modifier = Modifier.fillMaxWidth().height(54.dp),
             shape = RoundedCornerShape(8.dp),
             colors = ButtonDefaults.buttonColors(containerColor = darkBlue),
-            enabled = !isLoading
+            enabled = !isLoading && email.isNotBlank() && password.isNotBlank()
         ) {
             if (isLoading) {
                 CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
@@ -160,15 +146,7 @@ fun LoginScreen(navController: NavController, viewModel: AuthViewModel) {
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        TextButton(
-            onClick = { navController.navigate("clientHome") }
-        ) {
-            Text("Explorar sin iniciar sesión", color = Color.Gray, fontSize = 14.sp)
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(28.dp))
 
         Text(text = "¿No tienes cuenta?", color = Color.Gray)
         TextButton(onClick = { navController.navigate("register") }) {

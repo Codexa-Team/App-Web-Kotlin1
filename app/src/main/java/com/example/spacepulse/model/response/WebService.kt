@@ -23,11 +23,11 @@ interface WebService {
     @GET("api/v1/users/{userId}")
     suspend fun getUserProfileById(@Path("userId") userId: Long): Response<UserResource>
 
-    @PUT("api/v1/users/{userId}")
+    @PATCH("api/v1/users/{userId}")
     suspend fun updateUserProfile(@Path("userId") userId: Long, @Body request: UpdateUserRequest): Response<UserResource>
 
-    @PUT("api/v1/users/{userId}/password")
-    suspend fun updatePassword(@Path("userId") userId: Long, @Body request: UpdatePasswordRequest): Response<Unit>
+    @PATCH("api/v1/users/{userId}/password")
+    suspend fun updatePassword(@Path("userId") userId: Long, @Body request: UpdatePasswordRequest): Response<UserResource>
 
     // --- VEHÍCULOS ---
     @GET("api/v1/vehicles")
